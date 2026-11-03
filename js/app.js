@@ -10,6 +10,7 @@ import {
   settleHand,
   cardName,
 } from "./rules.js";
+import { basicStrategy, hiLo, trueCount, upcardValue } from "./strategy.js";
 
 const STARTING_BANKROLL = 1000;
 const MIN_CHIP = 5;
@@ -56,7 +57,104 @@ const state = {
   dealer: [],
   holeHidden: true,
   retry: null,
+  decisionStart: 0,
 };
+
+// ---------- recording (for the Stats tab) ----------
+let hooks = { onRoundComplete: null, getStrategyId: () => null };
+const count = { shuffles: -1, running: 0 };
+function see(cards) {
+  if (count.shuffles !== shoe.shuffles) {
+    count.shuffles = shoe.shuffles;
+    count.running = 0;
+  }
+  for (const card of cards) count.running += hiLo(card);
+}
+function countNow() {
+  see([]); // resets if the shoe was reshuffled
+  return { running: count.running, true: trueCount(count.running, shoe.remaining) };
+}
+let round = null; // the round being recorded
+let handKey = 0;
+
+// Snapshot the situation *before* an action so retries never double-log.
+function decisionContext(action) {
+  const hand = state.hands[state.active];
+  const up = state.dealer[0];
+  const can_double = canDouble(hand, state.bankroll);
+  const can_split = canSplit(hand, state.hands.length, state.bankroll);
+  const { total, soft } = scoreHand(hand.cards);
+  const recommended = basicStrategy(hand.cards, up, { canDouble: can_double, canSplit: can_split });
+  const c = countNow();
+  return {
+    hand_key: hand.key,
+    action,
+    player_cards: hand.cards.map((x) => x.code),
+    player_total: total,
+    soft,
+    is_pair: hand.cards.length === 2 && upcardValue(hand.cards[0]) === upcardValue(hand.cards[1]),
+    dealer_upcard: up.code,
+    upcard_value: upcardValue(up),
+    can_double,
+    can_split,
+    recommended,
+    matches_basic: recommended === action,
+    running_count: c.running,
+    true_count: c.true,
+    decision_ms: state.decisionStart ? Math.round(performance.now() - state.decisionStart) : null,
+  };
+}
+function logDecision(ctx) {
+  if (round) round.decisions.push({ ...ctx, seq: round.decisions.length });
+}
+
+function buildRoundPayload(staked, returned) {
+  const dealer = scoreHand(state.dealer);
+  const keyToIndex = new Map(state.hands.map((h, i) => [h.key, i]));
+  return {
+    round: {
+      strategy_id: round.strategy_id,
+      played_at: round.played_at,
+      deck_id: shoe.deckId,
+      deck_count: RULES.deckCount,
+      cards_remaining: round.cards_remaining,
+      running_count: round.running_count,
+      true_count: round.true_count,
+      bankroll_before: round.bankroll_before,
+      bankroll_after: state.bankroll,
+      initial_bet: round.initial_bet,
+      total_wagered: staked,
+      net: returned - staked,
+      hand_count: state.hands.length,
+      dealer_upcard: state.dealer[0].code,
+      dealer_cards: state.dealer.map((c) => c.code),
+      dealer_total: dealer.total,
+      dealer_blackjack: isNatural(state.dealer),
+      dealer_bust: dealer.total > 21,
+      player_blackjack: state.hands.length === 1 && isNatural(state.hands[0].cards),
+    },
+    hands: state.hands.map((h, i) => {
+      const first = scoreHand(h.cards.slice(0, 2));
+      const fin = scoreHand(h.cards);
+      return {
+        hand_index: i,
+        cards: h.cards.map((c) => c.code),
+        initial_total: first.total,
+        initial_soft: first.soft,
+        is_pair: upcardValue(h.cards[0]) === upcardValue(h.cards[1]),
+        final_total: fin.total,
+        final_soft: fin.soft,
+        doubled: h.doubled,
+        from_split: h.fromSplit,
+        outcome: h.result,
+        bet: h.bet,
+        payout: h.payout,
+        net: h.payout - h.bet,
+      };
+    }),
+    decisions: round.decisions.map(({ hand_key, ...d }) => ({ ...d, hand_index: keyToIndex.get(hand_key) })),
+  };
+}
 
 // ---------- persistence ----------
 function loadBankroll() {
@@ -95,10 +193,14 @@ async function run(action) {
     await action();
   } catch (err) {
     console.error(err);
-    state.retry = action;
+    // Resume from where it failed rather than replaying the player's action.
+    if (state.phase === "dealer") state.retry = finishRound;
+    else if (state.needsReshuffle) state.retry = finishReshuffle;
+    else state.retry = action;
     setMessage(`${err.message} Press Retry to try again.`, true);
   } finally {
     state.busy = false;
+    if (state.phase === "player") state.decisionStart = performance.now();
     render();
   }
 }
@@ -229,13 +331,28 @@ function renderRetry() {
 async function deal() {
   const bet = state.pendingBet;
   setMessage("Dealing…");
+  const before = countNow();
+  const remainingBefore = shoe.remaining;
+  const shufflesBefore = shoe.shuffles;
   const [p1, d1, p2, d2] = tag(await shoe.draw(4));
+  const fresh = shoe.shuffles !== shufflesBefore; // shoe was replaced during the draw
+  round = {
+    strategy_id: hooks.getStrategyId?.() ?? null,
+    played_at: new Date().toISOString(),
+    cards_remaining: fresh ? shoe.remaining + 4 : remainingBefore,
+    running_count: fresh ? 0 : before.running,
+    true_count: fresh ? 0 : before.true,
+    bankroll_before: state.bankroll,
+    initial_bet: bet,
+    decisions: [],
+  };
+  see([p1, d1, p2]); // the hole card is counted when it's revealed
 
   state.bankroll -= bet;
   saveBankroll();
   state.lastBet = bet;
   state.pendingBet = 0;
-  state.hands = [{ cards: [], bet, doubled: false, fromSplit: false, done: false, result: null }];
+  state.hands = [{ key: ++handKey, cards: [], bet, doubled: false, fromSplit: false, done: false, result: null }];
   state.active = 0;
   state.dealer = [];
   state.holeHidden = true;
@@ -281,7 +398,10 @@ async function autoAdvance() {
 }
 
 async function hit() {
+  const ctx = decisionContext("hit");
   const [card] = tag(await shoe.draw(1));
+  logDecision(ctx);
+  see([card]);
   const hand = state.hands[state.active];
   hand.cards.push(card);
   if (isBust(hand.cards)) {
@@ -294,14 +414,20 @@ async function hit() {
 }
 
 async function stand() {
-  state.hands[state.active].done = true;
+  const hand = state.hands[state.active];
+  if (hand.done) return autoAdvance();
+  logDecision(decisionContext("stand"));
+  hand.done = true;
   await autoAdvance();
 }
 
 async function doubleDown() {
   const hand = state.hands[state.active];
   if (!canDouble(hand, state.bankroll)) return;
+  const ctx = decisionContext("double");
   const [card] = tag(await shoe.draw(1));
+  logDecision(ctx);
+  see([card]);
   state.bankroll -= hand.bet;
   saveBankroll();
   hand.bet *= 2;
@@ -316,12 +442,15 @@ async function doubleDown() {
 async function split() {
   const hand = state.hands[state.active];
   if (!canSplit(hand, state.hands.length, state.bankroll)) return;
+  const ctx = decisionContext("split");
   const [c1, c2] = tag(await shoe.draw(2));
+  logDecision(ctx);
+  see([c1, c2]);
   state.bankroll -= hand.bet;
   saveBankroll();
 
   const moved = hand.cards.pop();
-  const newHand = { cards: [moved], bet: hand.bet, doubled: false, fromSplit: true, done: false, result: null };
+  const newHand = { key: ++handKey, cards: [moved], bet: hand.bet, doubled: false, fromSplit: true, done: false, result: null };
   hand.fromSplit = true;
   state.hands.splice(state.active + 1, 0, newHand);
   render();
@@ -343,6 +472,7 @@ async function split() {
 
 async function finishRound() {
   state.phase = "dealer";
+  if (state.holeHidden) see([state.dealer[1]]);
   state.holeHidden = false;
   render();
   await sleep(DEAL_DELAY);
@@ -353,6 +483,7 @@ async function finishRound() {
     setMessage("Dealer's turn.");
     while (dealerShouldHit(state.dealer)) {
       const [card] = tag(await shoe.draw(1));
+      see([card]);
       state.dealer.push(card);
       render();
       await sleep(DEAL_DELAY * 1.5);
@@ -364,12 +495,23 @@ async function finishRound() {
   for (const hand of state.hands) {
     const { outcome, payout } = settleHand(hand, state.dealer);
     hand.result = outcome;
+    hand.payout = payout;
     returned += payout;
     staked += hand.bet;
   }
   state.bankroll += returned;
   saveBankroll();
   state.phase = "betting";
+
+  if (round) {
+    const payload = buildRoundPayload(staked, returned);
+    round = null;
+    try {
+      hooks.onRoundComplete?.(payload);
+    } catch (err) {
+      console.error("Couldn't record round", err);
+    }
+  }
 
   const net = returned - staked;
   const dealerTotal = scoreHand(state.dealer).total;
@@ -389,12 +531,21 @@ async function finishRound() {
   if (shoe.remaining < shoe.size * RULES.reshuffleAt) {
     setMessage(`${summary} Shuffling the shoe…`);
     render();
+    state.needsReshuffle = true;
     await shoe.reshuffle();
+    state.needsReshuffle = false;
   }
 
   if (state.bankroll < MIN_CHIP) summary += " You're out of chips.";
   else summary += " Place your next bet.";
   setMessage(summary);
+}
+
+async function finishReshuffle() {
+  setMessage("Shuffling the shoe…");
+  await shoe.reshuffle();
+  state.needsReshuffle = false;
+  setMessage(state.bankroll < MIN_CHIP ? "You're out of chips." : "Place your next bet.");
 }
 
 // ---------- wiring ----------
@@ -440,7 +591,8 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Called once the player is signed in. Each account keeps its own bankroll.
-export function startGame(user) {
+export function startGame(user, gameHooks = {}) {
+  hooks = { ...hooks, ...gameHooks };
   if (user?.id) STORAGE_KEY = `blackjack.bankroll.${user.id}`;
   state.bankroll = loadBankroll();
   render();

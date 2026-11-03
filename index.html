@@ -58,6 +58,7 @@
     <button id="tab-profile" class="tab" role="tab" aria-selected="false" aria-controls="profile-view" tabindex="-1">
       Profile <span id="profile-tab-dot" class="tab-dot" aria-label="(not set up yet)" hidden></span>
     </button>
+    <button id="tab-stats" class="tab" role="tab" aria-selected="false" aria-controls="stats-view" tabindex="-1">Stats</button>
   </nav>
 
   <div id="table-view" class="view" role="tabpanel" aria-labelledby="tab-table">
@@ -85,6 +86,10 @@
         <button class="chip chip-100" data-chip="100">100</button>
         <button class="chip chip-500" data-chip="500">500</button>
       </div>
+      <label class="strategy-pick">
+        <span>Strategy</span>
+        <select id="strategy-select" aria-label="Strategy for the next rounds"><option value="">No strategy</option></select>
+      </label>
       <div class="actions">
         <button id="clear" class="btn ghost">Clear</button>
         <button id="rebet" class="btn ghost" hidden>Rebet</button>
@@ -110,6 +115,122 @@
     <p class="rules">6 decks · Dealer stands on 17 · Blackjack pays 3:2 · Double on any 2 cards · Split up to 4 hands</p>
   </footer>
   </div>
+
+  <dialog id="strategy-dialog" class="dialog">
+    <form id="strategy-form" class="dialog-body" novalidate>
+      <h2>New strategy</h2>
+      <p>Tag your rounds so you can compare approaches on the Stats tab.</p>
+      <label class="field">
+        <span>Name</span>
+        <input id="sd-name" maxlength="40" required placeholder="e.g. Basic + Hi-Lo 1–8 spread" />
+      </label>
+      <label class="field">
+        <span>Notes <small>optional</small></span>
+        <textarea id="sd-description" rows="3" maxlength="500" placeholder="Rules you're following: when you raise bets, any deviations…"></textarea>
+      </label>
+      <p id="sd-error" class="profile-status error" role="alert" hidden></p>
+      <div class="form-actions">
+        <button id="sd-cancel" type="button" class="btn ghost">Cancel</button>
+        <button id="sd-save" type="submit" class="btn primary">Create strategy</button>
+      </div>
+    </form>
+  </dialog>
+
+  <section id="stats-view" class="view stats-view" role="tabpanel" aria-labelledby="tab-stats" hidden>
+    <div class="stats-wrap">
+      <div class="stats-head">
+        <div>
+          <h2>Your stats</h2>
+          <p id="st-range-note" class="muted"></p>
+        </div>
+        <div class="filters" role="group" aria-label="Filters">
+          <select id="st-filter-strategy" aria-label="Strategy"><option value="all">All strategies</option></select>
+          <select id="st-filter-range" aria-label="Time range">
+            <option value="0">All time</option>
+            <option value="1">Last 24 hours</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+          <button id="st-refresh" class="btn ghost small" type="button">Refresh</button>
+          <select id="st-export" aria-label="Export CSV">
+            <option value="">Export CSV…</option>
+            <option value="rounds">Rounds</option>
+            <option value="hands">Hands</option>
+            <option value="decisions">Decisions</option>
+          </select>
+        </div>
+      </div>
+      <p id="st-status" class="muted" role="status" aria-live="polite"></p>
+      <p id="st-pending" class="pending-note" hidden></p>
+
+      <div id="st-empty" class="viz-empty big" hidden>
+        No rounds recorded for this filter yet. Every round you play from now on is saved here automatically.
+      </div>
+
+      <div id="st-content" hidden>
+        <div id="st-kpis" class="kpis"></div>
+
+        <section class="panel-card">
+          <h3>Patterns</h3>
+          <ul id="st-insights" class="insights"></ul>
+        </section>
+
+        <section class="panel-card">
+          <h3>Cumulative net</h3>
+          <p class="muted">Running profit or loss across every round in this filter.</p>
+          <div id="st-chart-net" class="chart"></div>
+        </section>
+
+        <div class="two-col">
+          <section class="panel-card">
+            <h3>Net per hand by dealer upcard</h3>
+            <div id="st-chart-upcard" class="chart"></div>
+            <details><summary>Show table</summary><div id="st-table-upcard"></div></details>
+          </section>
+          <section class="panel-card">
+            <h3>Net per round by true count</h3>
+            <p id="st-count-note" class="muted"></p>
+            <div id="st-chart-count" class="chart"></div>
+            <details><summary>Show table</summary><div id="st-table-count"></div></details>
+          </section>
+        </div>
+
+        <section class="panel-card">
+          <h3>Basic strategy adherence by situation</h3>
+          <p class="muted">% of your decisions that matched basic strategy. Small number = decisions made. Brighter = more consistent.</p>
+          <div id="st-heatmap" class="table-scroll"></div>
+        </section>
+
+        <section class="panel-card">
+          <h3>Where you deviate</h3>
+          <p class="muted">Your most common departures from basic strategy, and how those hands turned out.</p>
+          <div id="st-deviations"></div>
+        </section>
+
+        <div class="two-col">
+          <section class="panel-card">
+            <h3>Strategies</h3>
+            <div id="st-strategies"></div>
+          </section>
+          <section class="panel-card">
+            <h3>Actions</h3>
+            <div id="st-actions"></div>
+          </section>
+        </div>
+
+        <section class="panel-card">
+          <h3>Results by starting hand</h3>
+          <div id="st-starting"></div>
+        </section>
+
+        <section class="panel-card">
+          <h3>Recent rounds</h3>
+          <p class="muted">* = differed from basic strategy.</p>
+          <div id="st-recent"></div>
+        </section>
+      </div>
+    </div>
+  </section>
 
   <section id="profile-view" class="view profile-view" role="tabpanel" aria-labelledby="tab-profile" hidden>
     <div class="profile-wrap">
