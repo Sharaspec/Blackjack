@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blackjack</title>
+  <meta name="description" content="Play Blackjack in your browser, powered by the Deck of Cards API." />
+  <link rel="icon" href="https://deckofcardsapi.com/static/img/favicon/favicon-32x32.png" />
+  <link rel="preconnect" href="https://deckofcardsapi.com" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Blackjack</h1>
+    <div class="stats">
+      <div class="stat"><span class="label">Bankroll</span><span id="bankroll" class="value">$1,000</span></div>
+      <div class="stat"><span class="label">Bet</span><span id="bet" class="value">$0</span></div>
+      <div class="stat"><span class="label">Shoe</span><span id="shoe" class="value">—</span></div>
+    </div>
+  </header>
+
+  <main class="table">
+    <section class="area dealer" aria-label="Dealer">
+      <div class="area-head">
+        <h2>Dealer</h2>
+        <span id="dealer-score" class="score" hidden></span>
+      </div>
+      <div id="dealer-cards" class="cards"></div>
+    </section>
+
+    <p id="message" class="message" role="status" aria-live="polite">Place your bet to begin.</p>
+
+    <section class="area player" aria-label="Player">
+      <div id="player-hands" class="hands"></div>
+    </section>
+  </main>
+
+  <footer class="controls">
+    <div id="betting" class="panel">
+      <div class="chips" role="group" aria-label="Add chips">
+        <button class="chip chip-5" data-chip="5">5</button>
+        <button class="chip chip-25" data-chip="25">25</button>
+        <button class="chip chip-100" data-chip="100">100</button>
+        <button class="chip chip-500" data-chip="500">500</button>
+      </div>
+      <div class="actions">
+        <button id="clear" class="btn ghost">Clear</button>
+        <button id="rebet" class="btn ghost" hidden>Rebet</button>
+        <button id="deal" class="btn primary" disabled>Deal <kbd>Enter</kbd></button>
+      </div>
+    </div>
+
+    <div id="playing" class="panel" hidden>
+      <div class="actions">
+        <button id="hit" class="btn primary">Hit <kbd>H</kbd></button>
+        <button id="stand" class="btn primary">Stand <kbd>S</kbd></button>
+        <button id="double" class="btn">Double <kbd>D</kbd></button>
+        <button id="split" class="btn">Split <kbd>P</kbd></button>
+      </div>
+    </div>
+
+    <div id="broke" class="panel" hidden>
+      <div class="actions">
+        <button id="reset" class="btn primary">Reset bankroll to $1,000</button>
+      </div>
+    </div>
+
+    <p class="rules">6 decks · Dealer stands on 17 · Blackjack pays 3:2 · Double on any 2 cards · Split up to 4 hands</p>
+  </footer>
+</body>
+</html>
