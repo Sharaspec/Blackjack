@@ -430,6 +430,7 @@ el.split.addEventListener("click", () => run(split));
 document.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
   if (e.key === "Enter" && e.target instanceof HTMLButtonElement) return; // native click handles it
+  if (e.target.closest?.("input, textarea, select, [contenteditable]")) return; // typing in a form
   const map = { Enter: el.deal, h: el.hit, s: el.stand, d: el.double, p: el.split };
   const btn = map[e.key.length === 1 ? e.key.toLowerCase() : e.key];
   if (btn && !btn.disabled && !btn.closest("[hidden]")) {

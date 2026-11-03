@@ -1,6 +1,7 @@
 // Entry point: Google sign-in through Supabase Auth, then the game.
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
+import { initProfile, loadProfile } from "./profile.js";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true },
@@ -25,8 +26,12 @@ function profileOf(user) {
   };
 }
 
-function renderUser(user) {
-  const { fullName, firstName, avatar, email } = profileOf(user);
+function renderUser(user, profile) {
+  const google = profileOf(user);
+  const fullName = profile?.display_name || google.fullName;
+  const firstName = profile?.display_name || google.firstName;
+  const avatar = profile ? profile.avatar_url || "" : google.avatar;
+  const email = profile ? `@${profile.username}` : google.email;
   $("greeting").textContent = `Welcome, ${firstName}!`;
   $("user-email").textContent = email;
 
@@ -53,13 +58,54 @@ function renderUser(user) {
   }
 }
 
-async function enterGame(user) {
-  renderUser(user);
-  if (!gameStarted) {
-    gameStarted = true;
-    const { startGame } = await import("./app.js");
-    startGame(user); // loads this player's bankroll before the table is shown
+// ---------- tabs ----------
+const tabs = { table: $("tab-table"), profile: $("tab-profile") };
+const views = { table: $("table-view"), profile: $("profile-view") };
+function selectTab(name) {
+  for (const key of Object.keys(tabs)) {
+    const on = key === name;
+    tabs[key].setAttribute("aria-selected", String(on));
+    tabs[key].tabIndex = on ? 0 : -1;
+    views[key].hidden = !on;
   }
+}
+tabs.table.addEventListener("click", () => selectTab("table"));
+tabs.profile.addEventListener("click", () => selectTab("profile"));
+$("tabs").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  const next = tabs.table.getAttribute("aria-selected") === "true" ? "profile" : "table";
+  selectTab(next);
+  tabs[next].focus();
+});
+$("pf-skip").addEventListener("click", () => selectTab("table"));
+
+async function enterGame(user) {
+  if (gameStarted) return;
+  gameStarted = true;
+
+  let profile = null;
+  try {
+    profile = await loadProfile(supabase, user.id);
+  } catch (err) {
+    console.error("Couldn't load profile", err);
+  }
+  renderUser(user, profile);
+  initProfile({
+    supabase,
+    user,
+    profile,
+    googleAvatar: profileOf(user).avatar,
+    onSaved: (saved) => {
+      renderUser(user, saved);
+      $("pf-skip").hidden = true;
+    },
+  });
+  $("pf-skip").hidden = Boolean(profile);
+
+  const { startGame } = await import("./app.js");
+  startGame(user); // loads this player's bankroll before the table is shown
+  // New players land on the Profile tab so they can set one up right away.
+  selectTab(profile ? "table" : "profile");
   show("game");
 }
 
