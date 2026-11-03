@@ -45,6 +45,30 @@ Row Level Security:
 - Each player can only create and update their own profile.
 - Signed-out visitors can't read the table at all.
 
+## Game history & Stats tab
+
+Every round is saved automatically to Supabase for analysis and modeling:
+
+| Table | One row per | Key columns |
+| --- | --- | --- |
+| `strategies` | strategy you define on the table ("Basic", "Hi-Lo 1–8 spread"…) | `name`, `description` |
+| `rounds` | round dealt | `strategy_id`, `initial_bet`, `total_wagered`, `net`, `bankroll_before/after`, shoe state (`cards_remaining`, Hi-Lo `running_count`, `true_count`), dealer `upcard`/`cards`/`total`/`bust`/`blackjack` |
+| `round_hands` | player hand (splits make several) | `cards`, `initial_total/soft`, `is_pair`, `final_total`, `doubled`, `from_split`, `outcome`, `bet`, `payout`, `net` |
+| `decisions` | action you took | situation (`player_cards`, `player_total`, `soft`, `is_pair`, dealer `upcard_value`), what was allowed (`can_double`, `can_split`), `action`, the basic-strategy `recommended` action, `matches_basic`, count at that moment, `decision_ms` (time you took) |
+
+- Rounds are written atomically through the `record_round(payload)` database function.
+- Every table is private to its owner (RLS). Migration: `supabase/migrations/20261103010000_create_game_history.sql`.
+- If a save fails (e.g. offline), the round is queued in the browser and uploaded later.
+- Card counting uses Hi-Lo on the cards visible to the player. The hole card is counted once it's revealed, and the count resets on every shuffle.
+- Basic strategy is the chart for these rules: 6 decks, dealer stands on soft 17, double after split, no surrender.
+
+**Stats tab** (filter by strategy and time range):
+- **KPIs:** net, return on wager, win/loss/push rates, blackjack, bust and dealer-bust rates, doubles, splits, streaks, best and worst round, basic-strategy adherence, decision speed.
+- **Insights:** plain-language patterns, such as costly deviations, decision speed when deviating, best and worst dealer upcards, and whether your bets track the count.
+- **Charts:** cumulative net; net per hand by dealer upcard; net per round by true count.
+- **Breakdowns:** a basic-strategy adherence heatmap (your hand vs dealer upcard), top deviations, a strategy comparison, results by starting hand, and recent rounds.
+- **Export:** CSV of rounds, hands or decisions for modeling in Python, R or Excel.
+
 ## How it uses the API
 
 | Action | Endpoint |

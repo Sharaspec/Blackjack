@@ -30,12 +30,14 @@ export class Shoe {
     this.size = deckCount * 52;
     this.deckId = null;
     this.remaining = 0;
+    this.shuffles = 0; // bumps on every (re)shuffle so card counters know to reset
   }
 
   async open() {
     const data = await request(`${BASE}/new/shuffle/?deck_count=${this.deckCount}`);
     this.deckId = data.deck_id;
     this.remaining = data.remaining;
+    this.shuffles += 1;
   }
 
   async draw(count = 1) {
@@ -62,5 +64,6 @@ export class Shoe {
   async reshuffle() {
     const data = await request(`${BASE}/${this.deckId}/shuffle/`);
     this.remaining = data.remaining;
+    this.shuffles += 1;
   }
 }

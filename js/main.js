@@ -2,6 +2,9 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 import { initProfile, loadProfile } from "./profile.js";
+import { createRecorder } from "./recorder.js";
+import { initStrategies } from "./strategies.js";
+import { initStats } from "./stats-view.js";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true },
@@ -59,21 +62,24 @@ function renderUser(user, profile) {
 }
 
 // ---------- tabs ----------
-const tabs = { table: $("tab-table"), profile: $("tab-profile") };
-const views = { table: $("table-view"), profile: $("profile-view") };
+const tabs = { table: $("tab-table"), profile: $("tab-profile"), stats: $("tab-stats") };
+const views = { table: $("table-view"), profile: $("profile-view"), stats: $("stats-view") };
+const tabOrder = Object.keys(tabs);
+let statsPage = null;
 function selectTab(name) {
-  for (const key of Object.keys(tabs)) {
+  for (const key of tabOrder) {
     const on = key === name;
     tabs[key].setAttribute("aria-selected", String(on));
     tabs[key].tabIndex = on ? 0 : -1;
     views[key].hidden = !on;
   }
+  if (name === "stats") statsPage?.show();
 }
-tabs.table.addEventListener("click", () => selectTab("table"));
-tabs.profile.addEventListener("click", () => selectTab("profile"));
+for (const key of tabOrder) tabs[key].addEventListener("click", () => selectTab(key));
 $("tabs").addEventListener("keydown", (e) => {
   if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-  const next = tabs.table.getAttribute("aria-selected") === "true" ? "profile" : "table";
+  const cur = tabOrder.findIndex((k) => tabs[k].getAttribute("aria-selected") === "true");
+  const next = tabOrder[(cur + (e.key === "ArrowRight" ? 1 : tabOrder.length - 1)) % tabOrder.length];
   selectTab(next);
   tabs[next].focus();
 });
@@ -102,8 +108,17 @@ async function enterGame(user) {
   });
   $("pf-skip").hidden = Boolean(profile);
 
+  const recorder = createRecorder(supabase, user.id);
+  const strategies = await initStrategies({ supabase, user, onChange: () => statsPage?.refreshFilters() });
+  statsPage = initStats({ supabase, user, recorder, getStrategies: strategies.list });
+  recorder.flush(); // upload anything left over from a previous session
+
   const { startGame } = await import("./app.js");
-  startGame(user); // loads this player's bankroll before the table is shown
+  // loads this player's bankroll before the table is shown; every round is recorded
+  startGame(user, {
+    getStrategyId: strategies.selectedId,
+    onRoundComplete: (payload) => recorder.record(payload),
+  });
   // New players land on the Profile tab so they can set one up right away.
   selectTab(profile ? "table" : "profile");
   show("game");
