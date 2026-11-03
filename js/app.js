@@ -13,7 +13,7 @@ import {
 
 const STARTING_BANKROLL = 1000;
 const MIN_CHIP = 5;
-const STORAGE_KEY = "blackjack.bankroll";
+let STORAGE_KEY = "blackjack.bankroll";
 const DEAL_DELAY = 280;
 
 const $ = (id) => document.getElementById(id);
@@ -48,7 +48,7 @@ const shoe = new Shoe(RULES.deckCount);
 const state = {
   phase: "betting", // betting | player | dealer
   busy: false,
-  bankroll: loadBankroll(),
+  bankroll: STARTING_BANKROLL,
   pendingBet: 0,
   lastBet: 0,
   hands: [], // { cards, bet, doubled, fromSplit, done, result }
@@ -438,10 +438,15 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Open the shoe up front so the first deal is quick.
-render();
-run(async () => {
-  setMessage("Shuffling a 6-deck shoe…");
-  await shoe.open();
-  setMessage("Place your bet to begin.");
-});
+// Called once the player is signed in. Each account keeps its own bankroll.
+export function startGame(user) {
+  if (user?.id) STORAGE_KEY = `blackjack.bankroll.${user.id}`;
+  state.bankroll = loadBankroll();
+  render();
+  // Open the shoe up front so the first deal is quick.
+  run(async () => {
+    setMessage("Shuffling a 6-deck shoe…");
+    await shoe.open();
+    setMessage("Place your bet to begin.");
+  });
+}
