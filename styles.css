@@ -193,3 +193,78 @@ kbd {
   .btn { min-width: 0; flex: 1 1 40%; }
   kbd { display: none; }
 }
+
+/* ---------- screens & sign-in ---------- */
+.screen { display: flex; flex-direction: column; flex: 1; min-height: 100vh; }
+.screen[hidden] { display: none; }
+.center { align-items: center; justify-content: center; padding: 24px 16px; }
+.loading-text { color: var(--muted); font-size: 1.1rem; text-align: center; }
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 36px 28px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+.login-card h1 {
+  margin: 12px 0 6px;
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.login-card p { margin: 0 0 24px; color: var(--muted); }
+.login-art { border-radius: 6px; transform: rotate(-6deg); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); }
+
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 18px;
+  border: 1px solid #dadce0;
+  border-radius: 999px;
+  background: #fff;
+  color: #3c4043;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: box-shadow 0.15s;
+}
+.google-btn:not(:disabled):hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.login-error { margin: 16px 0 0 !important; color: var(--lose) !important; font-size: 0.9rem; }
+
+/* ---------- signed-in user ---------- */
+.user { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.avatar[hidden], .avatar.initials[hidden] { display: none; }
+.avatar.initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--felt-dark);
+  color: var(--gold);
+  font-weight: 800;
+}
+.user-text { display: flex; flex-direction: column; min-width: 0; }
+.greeting { font-weight: 700; }
+.user-email { font-size: 0.75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn.small { min-width: 0; padding: 6px 12px; font-size: 0.8rem; }
+
+@media (max-width: 520px) {
+  .topbar h1 { display: none; }
+  .topbar { justify-content: space-between; }
+  .user { width: 100%; }
+  .user .btn.small { margin-left: auto; flex: 0 0 auto; }
+  .user-email { display: none; }
+}
