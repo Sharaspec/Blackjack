@@ -53,6 +53,14 @@
     </div>
   </header>
 
+  <nav id="tabs" class="tabs" role="tablist" aria-label="Sections">
+    <button id="tab-table" class="tab" role="tab" aria-selected="true" aria-controls="table-view">Table</button>
+    <button id="tab-profile" class="tab" role="tab" aria-selected="false" aria-controls="profile-view" tabindex="-1">
+      Profile <span id="profile-tab-dot" class="tab-dot" aria-label="(not set up yet)" hidden></span>
+    </button>
+  </nav>
+
+  <div id="table-view" class="view" role="tabpanel" aria-labelledby="tab-table">
   <main class="table">
     <section class="area dealer" aria-label="Dealer">
       <div class="area-head">
@@ -101,6 +109,55 @@
 
     <p class="rules">6 decks · Dealer stands on 17 · Blackjack pays 3:2 · Double on any 2 cards · Split up to 4 hands</p>
   </footer>
+  </div>
+
+  <section id="profile-view" class="view profile-view" role="tabpanel" aria-labelledby="tab-profile" hidden>
+    <div class="profile-wrap">
+      <div class="profile-head">
+        <h2 id="profile-title">Create your profile</h2>
+        <p id="profile-intro"></p>
+      </div>
+
+      <article class="profile-card" aria-label="Profile preview">
+        <img id="pc-avatar" class="pc-avatar" alt="" referrerpolicy="no-referrer" hidden />
+        <span id="pc-initials" class="pc-avatar initials" hidden></span>
+        <div class="pc-text">
+          <h3 id="pc-name"></h3>
+          <p id="pc-username" class="pc-username"></p>
+          <p id="pc-bio" class="pc-bio"></p>
+          <p id="pc-since" class="pc-since"></p>
+        </div>
+      </article>
+
+      <form id="profile-form" class="profile-form" novalidate>
+        <label class="field">
+          <span>Username</span>
+          <div class="prefixed"><span aria-hidden="true">@</span>
+            <input id="pf-username" name="username" required minlength="3" maxlength="20"
+                   pattern="[a-z0-9_]{3,20}" autocomplete="username" autocapitalize="none" spellcheck="false" />
+          </div>
+          <small>3–20 characters: lowercase letters, numbers, underscores.</small>
+        </label>
+        <label class="field">
+          <span>Display name</span>
+          <input id="pf-display-name" name="display_name" required maxlength="50" autocomplete="name" />
+        </label>
+        <label class="field">
+          <span>Bio <small id="pf-bio-count" class="count">0/280</small></span>
+          <textarea id="pf-bio" name="bio" rows="3" maxlength="280" placeholder="Favorite strategy, home casino, lucky number…"></textarea>
+        </label>
+        <label class="check">
+          <input id="pf-use-photo" type="checkbox" checked />
+          <span>Use my Google profile photo</span>
+        </label>
+        <div class="form-actions">
+          <button id="pf-skip" type="button" class="btn ghost">Skip for now</button>
+          <button id="pf-submit" type="submit" class="btn primary">Create profile</button>
+        </div>
+        <p id="profile-status" class="profile-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
   </div>
 
   <script>

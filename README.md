@@ -22,6 +22,29 @@ One-time setup, in the Supabase dashboard:
 
 If the Netlify URL isn't in the redirect list, Supabase sends players back to the Site URL instead.
 
+## Player profiles
+
+Signed-in players get a **Profile** tab where they create and edit a profile: a unique `@username`,
+a display name, a short bio, and optionally their Google photo. New players land on that tab after their
+first sign-in (they can skip it). After that, the header greets them by display name.
+
+Profiles are stored in the Supabase table `public.profiles`. The migration is in
+`supabase/migrations/20261103000000_create_profiles.sql` and has already been applied to the project.
+
+| Column | Notes |
+| --- | --- |
+| `id` | The player's `auth.users` id. Deleting the account deletes the profile. |
+| `username` | Unique, 3–20 chars, `a-z 0-9 _` |
+| `display_name` | 1–50 chars |
+| `bio` | Optional, up to 280 chars |
+| `avatar_url` | Optional `https://` image URL (their Google photo) |
+| `created_at`, `updated_at` | Set automatically |
+
+Row Level Security:
+- Signed-in players can read profiles.
+- Each player can only create and update their own profile.
+- Signed-out visitors can't read the table at all.
+
 ## How it uses the API
 
 | Action | Endpoint |
